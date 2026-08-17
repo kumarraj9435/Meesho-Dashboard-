@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body{font-family:Arial,sans-serif;font-size:13px;padding:12px;color:#221A2B;}
+  h3{margin:0 0 4px;font-size:15px;}
+  p.hint{color:#6B6273;font-size:11.5px;margin:0 0 14px;line-height:1.5;}
+  label{font-size:12px;font-weight:600;display:block;margin-bottom:4px;}
+  select,input[type=file]{width:100%;margin-bottom:14px;padding:7px;box-sizing:border-box;border:1px solid #E7DEE9;border-radius:5px;font-size:12.5px;}
+  button{width:100%;padding:10px;background:#3D1152;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;}
+  button:disabled{opacity:.5;cursor:default;}
+  #status{margin-top:12px;font-size:12px;line-height:1.5;}
+  .ok{color:#1D8A5D;} .err{color:#D6403A;} .muted{color:#6B6273;}
+</style>
+</head>
+<body>
+  <h3>📥 File Import Karo</h3>
+  <p class="hint">File chuno, tab select karo, Import dabao. Naye rows neeche add ho jayenge — jo already sheet me hai wo automatically skip ho jayega (duplicate nahi banega).</p>
+
+  <label>Kis tab me daalna hai?</label>
+  <select id="tabName">
+    <option value="Orders">Orders (Orders CSV)</option>
+    <option value="PreviousPayment">Previous Payment (.xlsx)</option>
+    <option value="OutstandingPayment">Outstanding Payment (.xlsx)</option>
+    <option value="AdsCost">Ads Cost (.xlsx)</option>
+    <option value="RateCard">Rate Card (CSV/Excel — SKU/Product/Cost Price)</option>
+    <option value="ExtraExpenses">Extra Expenses (CSV/Excel — Date/Category/Description/Amount)</option>
+  </select>
+
+  <label>File chuno (.csv ya .xlsx)</label>
+  <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+
+  <button id="importBtn">Import Karo</button>
+  <div id="status"></div>
+
+<script>
+function parseCSVText(text){
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else { inQuotes=false; } } else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n' || c==='\r'){ if(c==='\r' && text[i+1]==='\n') i++; row.push(field); field=''; if(row.length>1 || row[0]!=='') rows.push(row); row=[]; }
+      else field+=c;
+    }
+  }
+  if(field!=='' || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+document.getElementById('importBtn').addEventListener('click', async ()=>{
+  const tabName = document.getElementById('tabName').value;
+  const fileInput = document.getElementById('fileInput');
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('importBtn');
+  if(!fileInput.files.length){ statusEl.textContent='Pehle file chuno.'; statusEl.className='err'; return; }
+  const file = fileInput.files[0];
+  statusEl.textContent = 'Processing...'; statusEl.className='muted';
+  btn.disabled = true;
+
+  let rows2D;
+  try{
+    if(/\.xlsx?$/i.test(file.name)){
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      let sheetName = wb.SheetNames[0];
+      if(wb.SheetNames.includes('Order Payments')) sheetName = 'Order Payments';
+      else if(wb.SheetNames.includes('Ads Cost')) sheetName = 'Ads Cost';
+      const ws = wb.Sheets[sheetName];
+      rows2D = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+    } else {
+      const text = await file.text();
+      rows2D = parseCSVText(text);
+    }
+  }catch(err){
+    statusEl.textContent = 'File padhne me error: '+err.message; statusEl.className='err';
+    btn.disabled = false;
+    return;
+  }
+
+  if(!rows2D || !rows2D.length){
+    statusEl.textContent = 'File me koi data nahi mila.'; statusEl.className='err';
+    btn.disabled = false;
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res=>{
+      btn.disabled = false;
+      if(res.ok){
+        statusEl.innerHTML = `✓ <b>${res.appended}</b> naye rows add hue.` +
+          (res.updated? ` <b>${res.updated}</b> update hue.`:'') +
+          (res.skipped? ` <b>${res.skipped}</b> duplicate skip hue.`:'');
+        statusEl.className='ok';
+      } else {
+        statusEl.textContent = res.error; statusEl.className='err';
+      }
+    })
+    .withFailureHandler(err=>{
+      btn.disabled = false;
+      statusEl.textContent = 'Server error: '+err.message; statusEl.className='err';
+    })
+    .importRowsToTab(tabName, rows2D);
+});
+</script>
+</body>
+</html>
