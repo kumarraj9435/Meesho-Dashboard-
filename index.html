@@ -243,7 +243,7 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
   <div class="login-card">
     <div class="login-badge">🛍️</div>
     <div class="login-title">Raj Meesho</div>
-    <div class="login-sub">Login karke apna dashboard kholo</div>
+    <div class="login-sub">Log in to open your dashboard</div>
 
     <div id="login-form">
       <div class="login-field">
@@ -258,7 +258,7 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
       </div>
       <button id="login-btn" class="login-btn-primary">🔓 Login</button>
       <div class="small-note" id="login-error" style="margin-top:10px;color:var(--red);text-align:center;"></div>
-      <a href="#" id="show-admin-link" class="login-footer-link">🔐 Admin Login (user manage karo)</a>
+      <a href="#" id="show-admin-link" class="login-footer-link">🔐 Admin Login (manage users)</a>
     </div>
 
     <div id="admin-panel" style="display:none;">
@@ -279,14 +279,14 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
       </div>
       <div id="admin-users-list" style="margin-top:12px;max-height:220px;overflow:auto;"></div>
       <div class="small-note" id="admin-status" style="margin-top:10px;"></div>
-      <a href="#" id="show-login-link" class="login-footer-link">← Wapas Login pe jao</a>
+      <a href="#" id="show-login-link" class="login-footer-link">← Back to Login</a>
     </div>
 
     <div class="small-note" id="setup-warning" style="display:none;margin-top:16px;padding:10px;background:var(--amber-bg);color:var(--amber);border-radius:8px;">
-      ⚠️ Setup incomplete — apna Apps Script Web App URL niche daal do.
+      ⚠️ Setup incomplete — please enter your Apps Script Web App URL below.
       <div style="margin-top:8px;">
         <input type="text" id="setup-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;margin-bottom:6px;">
-        <button id="setup-url-save" style="width:100%;">💾 URL Save Karo</button>
+        <button id="setup-url-save" style="width:100%;">💾 Save URL</button>
       </div>
     </div>
   </div>
@@ -739,7 +739,7 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
 
       <div class="panelrow">
         <div class="panel">
-          <h3>State-wise Summary <span style="color:var(--muted);font-weight:400;font-size:11px;">(GSTR-1 interstate B2C ke liye)</span></h3>
+          <h3>State-wise Summary <span style="color:var(--muted);font-weight:400;font-size:11px;">(Place of Supply code, for GSTR-1 interstate B2C)</span></h3>
           <div class="tablewrap">
             <table id="gst-state-table">
               <thead><tr><th>State</th><th>GST Rate</th><th class="num">Orders</th><th class="num">Taxable Value</th><th class="num">Tax Amount</th></tr></thead>
@@ -797,7 +797,15 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
           <button id="gstr1-fill-download">📥 Fill Template &amp; Download Excel</button>
         </div>
 
-        <div class="pl-section-title">4. Or Download the Same Data as JSON</div>
+        <div class="pl-section-title">4. Google Sheet Sync — Remember Numbering Across Months</div>
+        <p class="small-note" style="margin-bottom:8px;">Uses the same Google Sheet connected in the "Upload Data" tab. Saves this period's raw GST rows into <b>GSTSalesRaw</b> / <b>GSTReturnsRaw</b> tabs (new months just append below), and logs the invoice/credit-note range used into a <b>GSTFilingLog</b> tab — so next month's numbering can pick up automatically from where this month left off.</p>
+        <div class="controls">
+          <button class="secondary" id="gstr1-fetch-lastnum-btn">🔄 Fetch Last Used Numbering</button>
+          <button id="gstr1-save-sheet-btn">☁️ Save This Period's Data + Numbering to Sheet</button>
+        </div>
+        <div class="small-note" id="gstr1-sheet-status" style="margin-top:6px;"></div>
+
+        <div class="pl-section-title">5. Or Download the Same Data as JSON</div>
         <div class="controls">
           <button class="secondary" id="gstr1-download-json">🗂️ Download JSON (b2cs, hsn(b2c), docs)</button>
         </div>
@@ -2259,7 +2267,7 @@ function renderGstSummary(){
   window._gstHsnRows = hsnRows;
 
   // State-wise (now split by GST Rate too — needed for actual GSTR-1 filing)
-  const stateRows = groupNetCompound(r=>r.state, r=>r.gstRate+'%').sort((a,b)=> a.field1.localeCompare(b.field1) || b.taxable-a.taxable);
+  const stateRows = groupNetCompound(r=>mapStateToPOS(r.state), r=>r.gstRate+'%').sort((a,b)=> a.field1.localeCompare(b.field1) || b.taxable-a.taxable);
   document.getElementById('gst-state-tbody').innerHTML = stateRows.map(r=>`
     <tr><td>${r.field1}</td><td>${r.field2}</td><td class="num">${fmtNum(r.orders)}</td><td class="num">${fmtINR(r.taxable)}</td><td class="num">${fmtINR(r.tax)}</td></tr>`).join('');
   window._gstStateRows = stateRows;
@@ -2334,6 +2342,7 @@ function normalizeStateName(s){ return String(s||'').trim().toLowerCase().replac
 const GSTR1_POS_LOOKUP = {};
 GSTR1_POS_LIST.forEach(p=>{ const name = p.split('-').slice(1).join('-'); GSTR1_POS_LOOKUP[normalizeStateName(name)] = p; });
 function mapStateToPOS(stateName){
+  if(GSTR1_POS_LIST.includes(stateName)) return stateName;
   const key = normalizeStateName(stateName);
   if(GSTR1_POS_LOOKUP[key]) return GSTR1_POS_LOOKUP[key];
   if(GSTR1_STATE_ALIASES[key]) return GSTR1_STATE_ALIASES[key];
@@ -2444,7 +2453,6 @@ function buildGstr1Json(){
   const numbering = computeInvoiceNumbering();
   return {
     generatedAt: new Date().toISOString(),
-    business: 'Unigen Lifestyle',
     filingPeriod: state.dateFilter,
     settings: {homeState: settings.homeState, ecommerceGstin: settings.ecomGstin},
     invoiceNumbering: numbering,
@@ -2523,6 +2531,92 @@ document.getElementById('gstr1-download-json').addEventListener('click', ()=>{
   downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}), `GSTR1_Export_${periodLabel}.json`);
   statusEl.textContent = `✓ JSON downloaded — B2CS: ${data.b2cs.length} rows, HSN(B2C): ${data['hsn(b2c)'].length} rows, Docs: ${data.docs.length} rows.`;
   statusEl.style.color = 'var(--green)';
+});
+
+/* ---- Google Sheet sync: remember invoice/credit-note numbering across months ---- */
+function parseTrailingNumber(str){
+  const m = String(str||'').match(/^(.*?)(\d+)$/);
+  if(!m) return null;
+  return {prefix: m[1], number: parseInt(m[2],10)};
+}
+function derivePeriodLabelForLog(){
+  const sales = state.gstSales.filter(r=>dateInFilter(r.orderDate));
+  const periods = new Set(sales.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
+  if(periods.size===1) return Array.from(periods)[0];
+  if(state.dateFilter.from||state.dateFilter.to) return (state.dateFilter.from||'')+'_to_'+(state.dateFilter.to||'');
+  return Array.from(periods).sort().join('+') || 'Unknown';
+}
+async function writeRowsToSheetHTTP(tab, rows2D){
+  return await callAuthApi('writerows', {tab, rowsJson: JSON.stringify(rows2D)});
+}
+async function fetchLastGstNumbering(){
+  const rows2D = await fetchSheetTabRows('GSTFilingLog');
+  const rows = rowsToObjects(rows2D);
+  if(!rows.length) return null;
+  rows.sort((a,b)=> String(a.Period).localeCompare(String(b.Period)));
+  return rows[rows.length-1];
+}
+function applyLastNumbering(last){
+  const inv = parseTrailingNumber(last.InvoiceTo||'');
+  const cn = parseTrailingNumber(last.CreditNoteTo||'');
+  if(inv){ document.getElementById('gstr1-inv-prefix').value = inv.prefix; document.getElementById('gstr1-inv-start').value = inv.number+1; }
+  if(cn){ document.getElementById('gstr1-cn-prefix').value = cn.prefix; document.getElementById('gstr1-cn-start').value = cn.number+1; }
+  renderGstr1NumberingPreview();
+  saveGstr1Settings();
+}
+document.getElementById('gstr1-fetch-lastnum-btn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('gstr1-sheet-status');
+  statusEl.textContent = 'Checking last saved numbering in the Sheet...'; statusEl.style.color='var(--muted)';
+  try{
+    const last = await fetchLastGstNumbering();
+    if(!last){
+      statusEl.textContent = 'No previous filing log found in the Sheet yet — this looks like the first month, starting fresh.';
+      statusEl.style.color = 'var(--muted)';
+      return;
+    }
+    applyLastNumbering(last);
+    statusEl.textContent = `✓ Continuing after ${last.Period} — Invoice starts at ${document.getElementById('gstr1-inv-prefix').value}${document.getElementById('gstr1-inv-start').value}, Credit Note starts at ${document.getElementById('gstr1-cn-prefix').value}${document.getElementById('gstr1-cn-start').value}.`;
+    statusEl.style.color = 'var(--green)';
+  }catch(err){
+    statusEl.textContent = 'Could not read the Sheet: '+err.message; statusEl.style.color='var(--red)';
+  }
+});
+document.getElementById('gstr1-save-sheet-btn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('gstr1-sheet-status');
+  if(!state.gstSales.length && !state.gstReturns.length){
+    statusEl.textContent = 'No GST data loaded to save.'; statusEl.style.color='var(--red)'; return;
+  }
+  statusEl.textContent = 'Saving to Google Sheet...'; statusEl.style.color='var(--muted)';
+  saveGstr1Settings();
+  const gstHeader = ['SubOrderNo','OrderDate','HSN','Qty','GSTRate','TaxableValue','TaxAmount','InvoiceValue','State','Period'];
+  const sales = state.gstSales.filter(r=>dateInFilter(r.orderDate));
+  const returns = state.gstReturns.filter(r=>dateInFilter(r.orderDate));
+  const toRow = r => [r.subOrderNum, r.orderDate, r.hsnCode, r.qty, r.gstRate, r.taxableValue, r.taxAmount, r.invoiceValue, r.state, (r.financialYear||'')+'-'+String(r.monthNumber||'').padStart(2,'0')];
+  const salesRows2D = [gstHeader].concat(sales.map(toRow));
+  const returnRows2D = [gstHeader].concat(returns.map(toRow));
+  const numbering = computeInvoiceNumbering();
+  const periodLabel = derivePeriodLabelForLog();
+  const logRows2D = [
+    ['Period','InvoiceFrom','InvoiceTo','InvoiceCount','CreditNoteFrom','CreditNoteTo','CreditNoteCount','SavedAt'],
+    [periodLabel, numbering.invFrom, numbering.invTo, numbering.invCount, numbering.cnFrom, numbering.cnTo, numbering.cnCount, new Date().toISOString()]
+  ];
+  try{
+    const [r1, r2, r3] = await Promise.all([
+      writeRowsToSheetHTTP('GSTSalesRaw', salesRows2D),
+      writeRowsToSheetHTTP('GSTReturnsRaw', returnRows2D),
+      writeRowsToSheetHTTP('GSTFilingLog', logRows2D)
+    ]);
+    if(r1.ok && r2.ok && r3.ok){
+      statusEl.textContent = `✓ Saved to Google Sheet for ${periodLabel} — Sales: ${r1.appended} new rows, Returns: ${r2.appended} new rows, filing log updated (Invoices ${numbering.invFrom}–${numbering.invTo}, Credit Notes ${numbering.cnFrom}–${numbering.cnTo}).`;
+      statusEl.style.color = 'var(--green)';
+    } else {
+      const errs = [r1,r2,r3].filter(r=>!r.ok).map(r=>r.error).join(' | ');
+      statusEl.textContent = 'Some tabs failed to save: ' + errs;
+      statusEl.style.color = 'var(--red)';
+    }
+  }catch(err){
+    statusEl.textContent = 'Could not save to the Sheet: '+err.message; statusEl.style.color='var(--red)';
+  }
 });
 ['gstr1-home-state','gstr1-ecom-gstin','gstr1-inv-prefix','gstr1-inv-start','gstr1-cn-prefix','gstr1-cn-start'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{ renderGstr1NumberingPreview(); saveGstr1Settings(); });
@@ -2990,7 +3084,7 @@ async function callAuthApi(action, params){
     const res = await fetch(APPS_SCRIPT_URL, {method:'POST', body});
     return await res.json();
   }catch(err){
-    return {ok:false, error:'Server se connect nahi ho paya: '+err.message};
+    return {ok:false, error:'Could not connect to the server: '+err.message};
   }
 }
 
@@ -3005,7 +3099,7 @@ function showAppRoot(userId){
   heartbeatTimer = setInterval(async ()=>{
     const r = await callAuthApi('heartbeat', {userId: authUserId, token: authToken});
     if(r.ok){ heartbeatFailStreak = 0; return; }
-    const isNetworkIssue = r.error && r.error.indexOf('Server se connect nahi ho paya')===0;
+    const isNetworkIssue = r.error && r.error.indexOf('Could not connect to the server')===0;
     if(isNetworkIssue){
       // transient — internet ya Apps Script ka temporary hiccup, turant logout mat karo, retry hone do
       heartbeatFailStreak++;
@@ -3014,7 +3108,7 @@ function showAppRoot(userId){
     }
     // genuine session invalid (kisi aur jagah login hua) ya baar-baar network fail
     clearInterval(heartbeatTimer);
-    alert('⚠️ Aapka session khatam ho gaya — ' + (r.error||'kisi aur device se login hua hai') + '. Dobara login karo.');
+    alert('⚠️ Your session has expired — ' + (r.error||'you have been logged in from another device') + '. Please log in again.');
     doLogout(true);
   }, 5*60*1000); // every 5 minutes
 }
@@ -3023,7 +3117,7 @@ async function doLogin(){
   const userId = document.getElementById('login-userid').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl = document.getElementById('login-error');
-  if(!userId || !password){ errEl.textContent='User ID aur Password dono bharo.'; return; }
+  if(!userId || !password){ errEl.textContent='Please enter both User ID and Password.'; return; }
   errEl.textContent = 'Checking...'; errEl.style.color='var(--muted)';
   const r = await callAuthApi('login', {userId, password});
   if(r.ok){
@@ -3031,7 +3125,7 @@ async function doLogin(){
     errEl.textContent = '';
     showAppRoot(userId);
   } else {
-    errEl.textContent = r.error || 'Login fail ho gaya';
+    errEl.textContent = r.error || 'Login failed';
     errEl.style.color = 'var(--red)';
   }
 }
@@ -3096,19 +3190,19 @@ document.getElementById('admin-list-btn').addEventListener('click', async ()=>{
       <td>${u.lastActive||'—'}</td>
       <td>${u.active? `<button class="ghost" data-force="${u.userId}" style="padding:3px 8px;font-size:10.5px;">Force Logout</button>`:''} <button class="ghost" data-remove="${u.userId}" style="padding:3px 8px;font-size:10.5px;color:var(--red);">Remove</button></td>
     </tr>`).join('')}
-  </table>` : '<div class="small-note">Koi user nahi hai abhi.</div>';
+  </table>` : '<div class="small-note">No users yet.</div>';
 
   document.querySelectorAll('[data-force]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const r2 = await callAuthApi('adminforcelogout', {adminPassword, userId: btn.dataset.force});
-      statusEl.textContent = r2.ok? '✓ Force-logout ho gaya' : r2.error;
+      statusEl.textContent = r2.ok? '✓ Force logout successful' : r2.error;
       statusEl.style.color = r2.ok? 'var(--green)':'var(--red)';
       document.getElementById('admin-list-btn').click();
     });
   });
   document.querySelectorAll('[data-remove]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      if(!confirm('User "'+btn.dataset.remove+'" delete karna hai?')) return;
+      if(!confirm('Delete user "'+btn.dataset.remove+'"?')) return;
       const r2 = await callAuthApi('adminremove', {adminPassword, userId: btn.dataset.remove});
       statusEl.textContent = r2.ok? '✓ User removed' : r2.error;
       statusEl.style.color = r2.ok? 'var(--green)':'var(--red)';
@@ -3122,9 +3216,9 @@ document.getElementById('admin-add-btn').addEventListener('click', async ()=>{
   const userId = document.getElementById('admin-new-userid').value.trim();
   const password = document.getElementById('admin-new-password').value;
   const statusEl = document.getElementById('admin-status');
-  if(!userId || !password){ statusEl.textContent='User ID aur Password bharo.'; statusEl.style.color='var(--red)'; return; }
+  if(!userId || !password){ statusEl.textContent='Please enter both User ID and Password.'; statusEl.style.color='var(--red)'; return; }
   const r = await callAuthApi('adminadd', {adminPassword, userId, password});
-  statusEl.textContent = r.ok? ('✓ "'+userId+'" add/update ho gaya') : r.error;
+  statusEl.textContent = r.ok? ('✓ "'+userId+'" added/updated') : r.error;
   statusEl.style.color = r.ok? 'var(--green)':'var(--red)';
   if(r.ok){ document.getElementById('admin-new-userid').value=''; document.getElementById('admin-new-password').value=''; document.getElementById('admin-list-btn').click(); }
 });
@@ -3137,13 +3231,13 @@ function checkSetupStatus(){
 document.getElementById('setup-url-save').addEventListener('click', ()=>{
   const val = document.getElementById('setup-url-input').value.trim();
   if(!val || !/^https:\/\/script\.google\.com\/macros\//.test(val)){
-    alert('Sahi Apps Script Web App URL daalo — ye "https://script.google.com/macros/" se shuru hona chahiye.');
+    alert('Please enter a valid Apps Script Web App URL — it should start with "https://script.google.com/macros/".');
     return;
   }
   APPS_SCRIPT_URL = val;
   try{ localStorage.setItem('rajmeesho_apps_script_url', val); }catch(e){ /* per-session only if storage blocked */ }
   checkSetupStatus();
-  document.getElementById('login-error').textContent = '✓ URL save ho gaya — ab login karo.';
+  document.getElementById('login-error').textContent = '✓ URL saved — you can log in now.';
   document.getElementById('login-error').style.color = 'var(--green)';
 });
 checkSetupStatus();
