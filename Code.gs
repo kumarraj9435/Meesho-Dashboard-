@@ -38,6 +38,7 @@ function handle_(e) {
       case 'adminremove':      result = adminRemove_(p.adminPassword, p.userId); break;
       case 'adminforcelogout': result = adminForceLogout_(p.adminPassword, p.userId); break;
       case 'readtab':          result = readTab_(p.tab, p.sheetId); break;
+      case 'writerows':        result = writeRowsToTab_HTTP(p.tab, p.rowsJson, p.sheetId); break;
       default:                 result = { ok: false, error: 'Unknown action' };
     }
   } catch (err) {
@@ -75,6 +76,38 @@ function readTab_(tabName, sheetId) {
   return { ok: true, rows: data };
 }
 
+/**
+ * HTTP-exposed wrapper around importRowsToTab() — lets raj_meesho.html write
+ * (append/dedupe/update) rows into any configured tab directly from the
+ * browser via fetch(), the same way readtab already lets it read a tab.
+ * Used by the GST Summary panel's "Google Sheet Sync" to persist raw GST
+ * sales/return rows and the invoice/credit-note numbering log across months.
+ *
+ * rowsJson: a JSON-encoded 2D array (including its header row at index 0),
+ * exactly like importRowsToTab() already expects from the sidebar importer.
+ * sheetId (optional): write into a different spreadsheet, same rules as readtab.
+ */
+function writeRowsToTab_HTTP(tabName, rowsJson, sheetId) {
+  if (!tabName || !rowsJson) return { ok: false, error: 'tab aur rowsJson dono chahiye' };
+  let rows2D;
+  try {
+    rows2D = JSON.parse(rowsJson);
+  } catch (err) {
+    return { ok: false, error: 'rowsJson valid JSON nahi hai: ' + err };
+  }
+  if (!Array.isArray(rows2D) || !rows2D.length) return { ok: false, error: 'rowsJson khali hai' };
+  if (!sheetId) return importRowsToTab(tabName, rows2D);
+
+  // sheetId provided — same logic as importRowsToTab but against a different spreadsheet
+  let ss;
+  try {
+    ss = SpreadsheetApp.openById(sheetId);
+  } catch (err) {
+    return { ok: false, error: 'Ye Sheet open nahi ho payi — ID/link galat hai ya access nahi hai.' };
+  }
+  return importRowsToTabInSpreadsheet_(ss, tabName, rows2D);
+}
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET_NAME);
@@ -100,18 +133,18 @@ function findUserRow_(sh, userId) {
 }
 
 function login_(userId, password) {
-  if (!userId || !password) return { ok: false, error: 'UserID aur Password dono chahiye' };
+  if (!userId || !password) return { ok: false, error: 'User ID and Password are both required' };
   const sh = getSheet_();
   const row = findUserRow_(sh, userId);
-  if (row === -1) return { ok: false, error: 'User nahi mila' };
+  if (row === -1) return { ok: false, error: 'User not found' };
   const [uid, passHash, sessionToken, sessionDevice, lastActive] = sh.getRange(row, 1, 1, 5).getValues()[0];
-  if (hash_(password) !== passHash) return { ok: false, error: 'Password galat hai' };
+  if (hash_(password) !== passHash) return { ok: false, error: 'Incorrect password' };
 
   const now = new Date();
   if (sessionToken && lastActive) {
     const diffMin = (now - new Date(lastActive)) / 60000;
     if (diffMin < SESSION_TIMEOUT_MINUTES) {
-      return { ok: false, error: 'Ye User ID kisi aur device/browser par already login hai. Thodi der (' + SESSION_TIMEOUT_MINUTES + ' min) baad try karo, ya admin se force-logout karwao.' };
+      return { ok: false, error: 'This User ID is already logged in on another device/browser. Try again in a few (' + SESSION_TIMEOUT_MINUTES + ' min), or ask an admin to force-logout that session.' };
     }
   }
   const token = Utilities.getUuid();
@@ -122,9 +155,9 @@ function login_(userId, password) {
 function heartbeat_(userId, token) {
   const sh = getSheet_();
   const row = findUserRow_(sh, userId);
-  if (row === -1) return { ok: false, error: 'User nahi mila' };
+  if (row === -1) return { ok: false, error: 'User not found' };
   const stored = sh.getRange(row, 3).getValue();
-  if (stored !== token) return { ok: false, error: 'Session invalid ho gaya — kisi aur ne login kar liya hai is ID se' };
+  if (stored !== token) return { ok: false, error: 'Session is no longer valid — someone else has logged in with this ID' };
   sh.getRange(row, 5).setValue(new Date());
   return { ok: true };
 }
@@ -141,7 +174,7 @@ function logout_(userId, token) {
 function checkAdmin_(pw) { return pw === ADMIN_PASSWORD; }
 
 function adminList_(adminPassword) {
-  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Admin password galat hai' };
+  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Incorrect admin password' };
   const sh = getSheet_();
   const data = sh.getDataRange().getValues();
   const users = [];
@@ -154,8 +187,8 @@ function adminList_(adminPassword) {
 }
 
 function adminAdd_(adminPassword, userId, password) {
-  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Admin password galat hai' };
-  if (!userId || !password) return { ok: false, error: 'UserID aur Password dono chahiye' };
+  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Incorrect admin password' };
+  if (!userId || !password) return { ok: false, error: 'User ID and Password are both required' };
   const sh = getSheet_();
   const row = findUserRow_(sh, userId);
   const hashed = hash_(password);
@@ -165,19 +198,19 @@ function adminAdd_(adminPassword, userId, password) {
 }
 
 function adminRemove_(adminPassword, userId) {
-  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Admin password galat hai' };
+  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Incorrect admin password' };
   const sh = getSheet_();
   const row = findUserRow_(sh, userId);
-  if (row === -1) return { ok: false, error: 'User nahi mila' };
+  if (row === -1) return { ok: false, error: 'User not found' };
   sh.deleteRow(row);
   return { ok: true };
 }
 
 function adminForceLogout_(adminPassword, userId) {
-  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Admin password galat hai' };
+  if (!checkAdmin_(adminPassword)) return { ok: false, error: 'Incorrect admin password' };
   const sh = getSheet_();
   const row = findUserRow_(sh, userId);
-  if (row === -1) return { ok: false, error: 'User nahi mila' };
+  if (row === -1) return { ok: false, error: 'User not found' };
   sh.getRange(row, 3, 1, 3).setValues([['', '', '']]);
   return { ok: true };
 }
@@ -200,7 +233,7 @@ function addFirstUserFromScript() {
 
 /* ============================================================
  * IN-SHEET FILE IMPORT — custom menu + sidebar
- * Lets you upload Orders/Payment/AdsCost/RateCard/ExtraExpenses
+ * Lets you upload Orders/Payment/AdsCost/RateCard/ExtraExpenses/GST
  * files directly into the Sheet. New rows get appended below
  * existing ones; duplicates (by key) are skipped automatically.
  * ============================================================ */
@@ -315,9 +348,10 @@ function styleAllTabs() {
   const tabColors = {
     'Dashboard': '#C6167B', 'Orders': '#3D1152', 'PreviousPayment': '#5B2A86',
     'OutstandingPayment': '#7A3FA8', 'AdsCost': '#B67900', 'RateCard': '#1D8A5D',
-    'ExtraExpenses': '#D6403A', 'Users': '#6B6273'
+    'ExtraExpenses': '#D6403A', 'Users': '#6B6273',
+    'GSTSalesRaw': '#0E7C86', 'GSTReturnsRaw': '#17ADBB', 'GSTFilingLog': '#2255A8'
   };
-  const headerRowsMap = { 'Orders': 1, 'PreviousPayment': 3, 'OutstandingPayment': 3, 'AdsCost': 3, 'RateCard': 1, 'ExtraExpenses': 1, 'Users': 1 };
+  const headerRowsMap = { 'Orders': 1, 'PreviousPayment': 3, 'OutstandingPayment': 3, 'AdsCost': 3, 'RateCard': 1, 'ExtraExpenses': 1, 'Users': 1, 'GSTSalesRaw': 1, 'GSTReturnsRaw': 1, 'GSTFilingLog': 1 };
 
   Object.keys(tabColors).forEach(name => {
     const sh = ss.getSheetByName(name);
@@ -373,7 +407,7 @@ function deleteAllData() {
   const ui = SpreadsheetApp.getUi();
   const resp = ui.alert(
     '⚠️ Sab data delete karna hai?',
-    'Ye Orders, PreviousPayment, OutstandingPayment, AdsCost, RateCard, aur ExtraExpenses tabs ka pura data hata dega (sirf headers rahenge). Users/login data safe rahega, delete nahi hoga.\n\nPehle "Backup All Data" zaroor le lo agar nahi liya.\n\nContinue karna hai?',
+    'Ye Orders, PreviousPayment, OutstandingPayment, AdsCost, RateCard, ExtraExpenses, aur GST (GSTSalesRaw/GSTReturnsRaw/GSTFilingLog) tabs ka pura data hata dega (sirf headers rahenge). Users/login data safe rahega, delete nahi hoga.\n\nPehle "Backup All Data" zaroor le lo agar nahi liya.\n\nContinue karna hai?',
     ui.ButtonSet.YES_NO
   );
   if (resp !== ui.Button.YES) { ui.alert('Cancel kar diya — kuch delete nahi hua.'); return; }
@@ -381,7 +415,8 @@ function deleteAllData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const tabsToClear = {
     'Orders': 1, 'PreviousPayment': 3, 'OutstandingPayment': 3,
-    'AdsCost': 3, 'RateCard': 1, 'ExtraExpenses': 1
+    'AdsCost': 3, 'RateCard': 1, 'ExtraExpenses': 1,
+    'GSTSalesRaw': 1, 'GSTReturnsRaw': 1, 'GSTFilingLog': 1
   };
   const cleared = [];
   Object.keys(tabsToClear).forEach(name => {
@@ -451,6 +486,14 @@ function setupAllTabs() {
   // ExtraExpenses
   ensureTab('ExtraExpenses', [['Date', 'Category', 'Description', 'Amount']]);
 
+  // GST — raw sales/return rows kept here so numbering & totals persist
+  // across months, plus the filing log that remembers invoice/credit-note
+  // ranges already used so the next month's numbering can continue on.
+  const gstRawHeader = ['SubOrderNo', 'OrderDate', 'HSN', 'Qty', 'GSTRate', 'TaxableValue', 'TaxAmount', 'InvoiceValue', 'State', 'Period'];
+  ensureTab('GSTSalesRaw', [gstRawHeader]);
+  ensureTab('GSTReturnsRaw', [gstRawHeader]);
+  ensureTab('GSTFilingLog', [['Period', 'InvoiceFrom', 'InvoiceTo', 'InvoiceCount', 'CreditNoteFrom', 'CreditNoteTo', 'CreditNoteCount', 'SavedAt']]);
+
   // Users (also auto-created by getSheet_ on first login, but nice to have upfront)
   if (!ss.getSheetByName(SHEET_NAME)) { getSheet_(); created.push(SHEET_NAME); }
   else skipped.push(SHEET_NAME);
@@ -474,7 +517,10 @@ const TAB_CONFIGS_ = {
   'OutstandingPayment':  { headerRows: 3, keyColIndex: 0 },
   'AdsCost':             { headerRows: 3, keyColIndexes: [0, 1, 2] },    // Duration+Date+CampaignId combo
   'RateCard':            { headerRows: 1, keyHeader: 'SKU', updateMode: true }, // existing SKU -> update cost instead of duplicate row
-  'ExtraExpenses':       { headerRows: 1, keyHeader: null }              // dedupe by full row content
+  'ExtraExpenses':       { headerRows: 1, keyHeader: null },             // dedupe by full row content
+  'GSTSalesRaw':         { headerRows: 1, keyHeader: 'SubOrderNo' },     // skip rows for an already-stored sub-order
+  'GSTReturnsRaw':       { headerRows: 1, keyHeader: 'SubOrderNo' },
+  'GSTFilingLog':        { headerRows: 1, keyHeader: 'Period', updateMode: true } // re-saving the same period updates its row
 };
 
 function normalizeRows_(rows2D) {
@@ -487,17 +533,23 @@ function normalizeRows_(rows2D) {
 }
 
 /**
- * Called from the sidebar (Upload.html) via google.script.run.
- * rows2D: full 2D array exactly as read from the uploaded file,
- * INCLUDING its header row(s) at the top.
+ * Called from the sidebar (Upload.html) via google.script.run, AND from
+ * raj_meesho.html directly over HTTP via the "writerows" action (see
+ * writeRowsToTab_HTTP above) — both paths share this same function.
+ * rows2D: full 2D array exactly as read from the uploaded file / built
+ * in the browser, INCLUDING its header row(s) at the top.
  */
 function importRowsToTab(tabName, rows2D) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return importRowsToTabInSpreadsheet_(ss, tabName, rows2D);
+}
+
+function importRowsToTabInSpreadsheet_(ss, tabName, rows2D) {
   const cfg = TAB_CONFIGS_[tabName];
   if (!cfg) return { ok: false, error: 'Unknown tab: ' + tabName };
   if (!rows2D || rows2D.length === 0) return { ok: false, error: 'Koi data nahi mila file me' };
   rows2D = normalizeRows_(rows2D);
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(tabName);
   if (!sh) sh = ss.insertSheet(tabName);
 
