@@ -489,10 +489,10 @@ function setupAllTabs() {
   // GST — raw sales/return rows kept here so numbering & totals persist
   // across months, plus the filing log that remembers invoice/credit-note
   // ranges already used so the next month's numbering can continue on.
-  const gstRawHeader = ['SubOrderNo', 'OrderDate', 'HSN', 'Qty', 'GSTRate', 'TaxableValue', 'TaxAmount', 'InvoiceValue', 'State', 'Period'];
+  const gstRawHeader = ['SubOrderNo', 'OrderDate', 'HSN', 'Qty', 'GSTRate', 'TaxableValue', 'TaxAmount', 'InvoiceValue', 'State', 'Period', 'Portal', 'GSTIN'];
   ensureTab('GSTSalesRaw', [gstRawHeader]);
   ensureTab('GSTReturnsRaw', [gstRawHeader]);
-  ensureTab('GSTFilingLog', [['Period', 'InvoiceFrom', 'InvoiceTo', 'InvoiceCount', 'CreditNoteFrom', 'CreditNoteTo', 'CreditNoteCount', 'SavedAt']]);
+  ensureTab('GSTFilingLog', [['Period', 'InvoiceFrom', 'InvoiceTo', 'InvoiceCount', 'CreditNoteFrom', 'CreditNoteTo', 'CreditNoteCount', 'SavedAt', 'Portal', 'GSTIN']]);
 
   // Users (also auto-created by getSheet_ on first login, but nice to have upfront)
   if (!ss.getSheetByName(SHEET_NAME)) { getSheet_(); created.push(SHEET_NAME); }
@@ -518,9 +518,9 @@ const TAB_CONFIGS_ = {
   'AdsCost':             { headerRows: 3, keyColIndexes: [0, 1, 2] },    // Duration+Date+CampaignId combo
   'RateCard':            { headerRows: 1, keyHeader: 'SKU', updateMode: true }, // existing SKU -> update cost instead of duplicate row
   'ExtraExpenses':       { headerRows: 1, keyHeader: null },             // dedupe by full row content
-  'GSTSalesRaw':         { headerRows: 1, keyHeader: 'SubOrderNo' },     // skip rows for an already-stored sub-order
-  'GSTReturnsRaw':       { headerRows: 1, keyHeader: 'SubOrderNo' },
-  'GSTFilingLog':        { headerRows: 1, keyHeader: 'Period', updateMode: true } // re-saving the same period updates its row
+  'GSTSalesRaw':         { headerRows: 1, keyHeaders: ['Portal','GSTIN','SubOrderNo'] }, // skip rows already stored for this seller+sub-order
+  'GSTReturnsRaw':       { headerRows: 1, keyHeaders: ['Portal','GSTIN','SubOrderNo'] },
+  'GSTFilingLog':        { headerRows: 1, keyHeaders: ['Portal','GSTIN','Period'], updateMode: true } // re-saving the same seller+period updates its row
 };
 
 function normalizeRows_(rows2D) {
@@ -572,9 +572,18 @@ function importRowsToTabInSpreadsheet_(ss, tabName, rows2D) {
     const idx = headerRowForLookup.findIndex(h => String(h).trim() === cfg.keyHeader);
     keyColIndex = idx === -1 ? 0 : idx;
   }
+  let keyColIndexesByHeader = null;
+  if (cfg.keyHeaders) {
+    const headerRowForLookup = existingData[headerRows - 1] || existingData[0];
+    keyColIndexesByHeader = cfg.keyHeaders.map(h => {
+      const idx = headerRowForLookup.findIndex(x => String(x).trim() === h);
+      return idx === -1 ? 0 : idx;
+    });
+  }
 
   function makeKey(row) {
     if (cfg.keyColIndexes) return cfg.keyColIndexes.map(i => row[i]).join('|');
+    if (keyColIndexesByHeader) return keyColIndexesByHeader.map(i => String(row[i] || '').trim().toLowerCase()).join('|');
     if (keyColIndex !== null) return String(row[keyColIndex] || '').trim().toLowerCase();
     return row.join('|').toLowerCase(); // full-row dedupe fallback
   }
