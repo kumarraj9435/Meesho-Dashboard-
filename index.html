@@ -296,7 +296,7 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
   <div class="login-card" style="max-width:340px;">
     <div class="login-badge">🧾</div>
     <div class="login-title">GST Summary</div>
-    <div class="login-sub">Ye section password-protected hai</div>
+    <div class="login-sub">This section is password protected</div>
     <div class="login-field">
       <label>Password</label>
       <span class="icon">🔒</span>
@@ -655,32 +655,60 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
   <!-- ============ GST SUMMARY ============ -->
   <section class="view" id="view-gst">
     <div class="topbar">
-      <div><h1>GST Summary</h1><div class="sub">Meesho ke GST TCS files se rate-wise, state-wise, HSN-wise aur month-wise summary — filing ke liye ready</div></div>
+      <div><h1>GST Summary</h1><div class="sub">Rate-wise, state-wise, HSN-wise and month-wise GST summary from Meesho's GST TCS files — ready for GSTR-1 filing</div></div>
     </div>
 
     <div class="panel" style="margin-bottom:16px;">
-      <h3>Upload GST Files</h3>
-      <p class="small-note" style="margin-bottom:12px;">Meesho Seller Panel → GST Reports se <b>tcs_sales.xlsx</b> aur <b>tcs_sales_return.xlsx</b> download karo (har month ka alag zip aata hai) — dono yaha upload karo, jitne months ke chahiye utne saath me select kar sakte ho.</p>
+      <h3>Upload GST Files — Bulk (All Months Together)</h3>
+      <p class="small-note" style="margin-bottom:12px;">Download <b>tcs_sales.xlsx</b> and <b>tcs_sales_return.xlsx</b> from Meesho Seller Panel → GST Reports (each month comes as a separate zip) — upload both here. You can select as many months' files together as you like; they will all merge into one summary automatically.</p>
       <div class="uploadgrid" style="margin-bottom:0;">
         <div class="uploadcard" id="card-gst-sales">
           <h3>GST Sales File (tcs_sales.xlsx)</h3>
-          <p>Multiple months ki files ek saath select kar sakte ho.</p>
+          <p>You can select files for multiple months at once.</p>
           <input type="file" id="file-gst-sales" accept=".xlsx,.xls" multiple>
-          <div class="status empty" id="status-gst-sales">Koi file nahi</div>
+          <div class="status empty" id="status-gst-sales">No file yet</div>
         </div>
         <div class="uploadcard" id="card-gst-returns">
           <h3>GST Sales Return File (tcs_sales_return.xlsx)</h3>
-          <p>Return/cancellation ke GST adjustments.</p>
+          <p>GST adjustments for returns/cancellations.</p>
           <input type="file" id="file-gst-returns" accept=".xlsx,.xls" multiple>
-          <div class="status empty" id="status-gst-returns">Koi file nahi</div>
+          <div class="status empty" id="status-gst-returns">No file yet</div>
         </div>
       </div>
     </div>
 
+    <div class="panel" style="margin-bottom:16px;">
+      <h3>Upload GST Files — One Month at a Time</h3>
+      <p class="small-note" style="margin-bottom:12px;">Prefer adding one month at a time instead of a bulk upload? Pick the month and year below, choose that month's Sales and/or Return file, and add it — the rows get tagged with the period you select and merge into the same summary as the bulk upload above.</p>
+      <div class="controls">
+        <select id="gst-month-select">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+        <input type="number" id="gst-year-select" value="2026" style="width:90px;" min="2020" max="2035">
+        <label class="small-note" style="margin:0;">Sales file:</label>
+        <input type="file" id="gst-month-sales-file" accept=".xlsx,.xls">
+        <label class="small-note" style="margin:0;">Return file:</label>
+        <input type="file" id="gst-month-return-file" accept=".xlsx,.xls">
+        <button id="gst-month-add-btn">➕ Add This Month's Data</button>
+      </div>
+      <div class="small-note" id="gst-month-status" style="margin-top:8px;"></div>
+    </div>
+
     <div id="gst-empty" class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg>
-      <h3>Abhi koi GST data nahi hai</h3>
-      <p>Upar tcs_sales.xlsx (aur agar hai to tcs_sales_return.xlsx) upload karo — summary automatically ban jayegi.</p>
+      <h3>No GST data yet</h3>
+      <p>Upload tcs_sales.xlsx (and tcs_sales_return.xlsx if you have it) above — the summary will build automatically.</p>
     </div>
 
     <div id="gst-content" style="display:none;">
@@ -738,14 +766,44 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
       </div>
 
       <div class="panel">
-        <h3>📤 Export / Backup — Poora GST Data</h3>
-        <p class="small-note" style="margin-bottom:10px;">Saara GST data (Rate-wise, HSN-wise, State-wise, Month-wise + raw net sales/returns rows) ek hi file me — kitne bhi months ka mila hua data ek saath aayega.</p>
-        <div class="controls">
-          <button id="gst-export-json">🗂️ Download JSON (poora data)</button>
-          <button class="secondary" id="gst-export-excel">📊 Download Excel (poora data, multi-sheet)</button>
+        <h3>🧾 GSTR-1 Filing Panel</h3>
+        <p class="small-note" style="margin-bottom:14px;">Fill your official GSTR-1 Excel template (b2cs, hsn(b2c), docs sheets) and generate a matching JSON — built from whatever Sales/Return data is currently loaded above, after applying the Date Range filter in the sidebar. <b>Tip:</b> GSTR-1 is filed one return period at a time, so set the sidebar Date Range filter to a single month before generating the filled file.</p>
+
+        <div class="pl-section-title" style="margin-top:0;">1. Business Settings</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:640px;margin-bottom:6px;">
+          <div>
+            <label class="small-note">Business Home State (for CGST/SGST vs IGST split)</label><br>
+            <select id="gstr1-home-state" style="width:100%;margin-top:4px;"><option value="">— Select State —</option></select>
+          </div>
+          <div>
+            <label class="small-note">E-Commerce Operator GSTIN (Meesho) — optional</label><br>
+            <input type="text" id="gstr1-ecom-gstin" placeholder="e.g. 07XXXXXXXXXXXZ0" style="width:100%;margin-top:4px;">
+          </div>
         </div>
-        <div class="small-note" id="gst-export-status" style="margin-top:8px;"></div>
-        <div class="small-note" style="margin-top:8px;color:var(--muted);">ℹ️ Ye JSON ek clean, complete data export hai (backup, CA ko bhejne, ya kisi doosre tool me import karne ke liye) — GST portal ka official GSTR-1 offline-tool JSON schema alag hota hai. Agar seedha GST portal me upload karne wale exact format me chahiye, to wo schema bata do, alag se wo bana denge.</div>
+
+        <div class="pl-section-title">2. Invoice &amp; Credit Note Numbering</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;max-width:640px;margin-bottom:6px;">
+          <div><label class="small-note">Invoice Prefix (optional)</label><br><input type="text" id="gstr1-inv-prefix" placeholder="e.g. UGN/25-26/" style="width:100%;margin-top:4px;"></div>
+          <div><label class="small-note">Invoice Starting No.</label><br><input type="number" id="gstr1-inv-start" value="1" min="1" style="width:100%;margin-top:4px;"></div>
+          <div><label class="small-note">Credit Note Prefix (optional)</label><br><input type="text" id="gstr1-cn-prefix" placeholder="e.g. CN/25-26/" style="width:100%;margin-top:4px;"></div>
+          <div><label class="small-note">Credit Note Starting No.</label><br><input type="number" id="gstr1-cn-start" value="1" min="1" style="width:100%;margin-top:4px;"></div>
+        </div>
+        <div class="small-note" id="gstr1-numbering-preview" style="margin-bottom:14px;"></div>
+
+        <div class="pl-section-title">3. Fill the Official GSTR-1 Excel Template</div>
+        <p class="small-note" style="margin-bottom:8px;">Upload your official GSTR-1 Excel Workbook Template (the V2.2 format, with b2cs / hsn(b2c) / docs sheets) — it gets filled with the data above and downloaded, with every other sheet left untouched.</p>
+        <div class="controls">
+          <input type="file" id="gstr1-template-file" accept=".xlsx,.xls">
+          <button id="gstr1-fill-download">📥 Fill Template &amp; Download Excel</button>
+        </div>
+
+        <div class="pl-section-title">4. Or Download the Same Data as JSON</div>
+        <div class="controls">
+          <button class="secondary" id="gstr1-download-json">🗂️ Download JSON (b2cs, hsn(b2c), docs)</button>
+        </div>
+
+        <div class="small-note" id="gstr1-status" style="margin-top:10px;"></div>
+        <div class="small-note" style="margin-top:10px;color:var(--muted);">ℹ️ This is a best-effort auto-fill (Place of Supply is mapped from the state names in your GST files, and Applicable %, UQC etc. use sensible defaults) — please review the filled sheet against your actual records before filing.</div>
       </div>
     </div>
   </section>
@@ -938,7 +996,7 @@ function tryGstUnlock(){
     document.getElementById('gst-lock-modal').style.display = 'none';
     switchView('gst');
   } else {
-    errEl.textContent = 'Galat password.';
+    errEl.textContent = 'Incorrect password.';
   }
 }
 
@@ -1371,7 +1429,7 @@ document.getElementById('file-gst-sales').addEventListener('change', async e=>{
   const {list, dup} = dedupeGst(state.gstSales);
   state.gstSales = list;
   const monthsCovered = new Set(state.gstSales.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
-  markFilled('card-gst-sales','status-gst-sales', state.gstSales.length + ' rows loaded (' + monthsCovered.size + ' months mila hua)' + (dup? (', '+dup+' duplicate skip hue'):''));
+  markFilled('card-gst-sales','status-gst-sales', state.gstSales.length + ' rows loaded (' + monthsCovered.size + ' months covered)' + (dup? (', '+dup+' duplicates skipped'):''));
   refreshAll();
 });
 document.getElementById('file-gst-returns').addEventListener('change', async e=>{
@@ -1382,7 +1440,61 @@ document.getElementById('file-gst-returns').addEventListener('change', async e=>
   const {list, dup} = dedupeGst(state.gstReturns);
   state.gstReturns = list;
   const monthsCovered = new Set(state.gstReturns.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
-  markFilled('card-gst-returns','status-gst-returns', state.gstReturns.length + ' rows loaded (' + monthsCovered.size + ' months mila hua)' + (dup? (', '+dup+' duplicate skip hue'):''));
+  markFilled('card-gst-returns','status-gst-returns', state.gstReturns.length + ' rows loaded (' + monthsCovered.size + ' months covered)' + (dup? (', '+dup+' duplicates skipped'):''));
+  refreshAll();
+});
+
+/* ---- Upload GST data one month at a time (tags rows with the chosen period) ---- */
+document.getElementById('gst-month-add-btn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('gst-month-status');
+  const month = num(document.getElementById('gst-month-select').value);
+  const year = num(document.getElementById('gst-year-select').value);
+  const monthLabel = document.getElementById('gst-month-select').selectedOptions[0].text;
+  const salesFile = document.getElementById('gst-month-sales-file').files[0];
+  const returnFile = document.getElementById('gst-month-return-file').files[0];
+  if(!salesFile && !returnFile){
+    statusEl.textContent = 'Choose at least one file (Sales or Return) for the selected month.';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+  statusEl.textContent = 'Processing...'; statusEl.style.color = 'var(--muted)';
+  // GST financial year runs April → March
+  const fy = month>=4 ? `${year}-${String(year+1).slice(2)}` : `${year-1}-${String(year).slice(2)}`;
+  let addedSales=0, addedReturns=0;
+  try{
+    if(salesFile){
+      const rows = await readGstXlsxFile(salesFile);
+      rows.forEach(r=>{
+        const parsed = parseGstXlsxRow(r);
+        parsed.financialYear = fy; parsed.monthNumber = month; // tag with the month picked above
+        state.gstSales.push(parsed);
+      });
+      addedSales = rows.length;
+    }
+    if(returnFile){
+      const rows = await readGstXlsxFile(returnFile);
+      rows.forEach(r=>{
+        const parsed = parseGstXlsxRow(r);
+        parsed.financialYear = fy; parsed.monthNumber = month;
+        state.gstReturns.push(parsed);
+      });
+      addedReturns = rows.length;
+    }
+  }catch(err){
+    statusEl.textContent = 'Error reading file: '+err.message; statusEl.style.color='var(--red)';
+    return;
+  }
+  const {list:sList, dup:sDup} = dedupeGst(state.gstSales); state.gstSales = sList;
+  const {list:rList, dup:rDup} = dedupeGst(state.gstReturns); state.gstReturns = rList;
+  const totalDup = sDup+rDup;
+  statusEl.textContent = `✓ Added for ${monthLabel} ${year} — ${addedSales} sales rows, ${addedReturns} return rows loaded` + (totalDup? ` (${totalDup} duplicates skipped)`:'') + '.';
+  statusEl.style.color = 'var(--green)';
+  document.getElementById('gst-month-sales-file').value = '';
+  document.getElementById('gst-month-return-file').value = '';
+  const monthsCoveredSales = new Set(state.gstSales.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
+  markFilled('card-gst-sales','status-gst-sales', state.gstSales.length + ' rows loaded (' + monthsCoveredSales.size + ' months covered)');
+  const monthsCoveredReturns = new Set(state.gstReturns.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
+  markFilled('card-gst-returns','status-gst-returns', state.gstReturns.length + ' rows loaded (' + monthsCoveredReturns.size + ' months covered)');
   refreshAll();
 });
 
@@ -2072,6 +2184,7 @@ function renderPnL(){
    GST SUMMARY
 ========================================================= */
 function renderGstSummary(){
+  if(typeof renderGstr1NumberingPreview === 'function') renderGstr1NumberingPreview();
   const hasData = state.gstSales.length || state.gstReturns.length;
   document.getElementById('gst-empty').style.display = hasData? 'none':'block';
   document.getElementById('gst-content').style.display = hasData? 'block':'none';
@@ -2192,57 +2305,231 @@ document.getElementById('gst-export-month').addEventListener('click', ()=>{
 });
 
 /* =========================================================
-   GST — FULL DATA EXPORT (JSON + Excel), multi-month merged
+   GSTR-1 FILING ENGINE — Place of Supply mapping, invoice/credit-note
+   numbering, official-template filler (b2cs / hsn(b2c) / docs) and
+   a matching JSON export. All English UI per business requirement.
 ========================================================= */
-function buildGstFullDataset(){
-  const periodsSales = new Set(state.gstSales.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
-  const periodsReturns = new Set(state.gstReturns.map(r=>(r.financialYear||'?')+'-'+String(r.monthNumber||'?').padStart(2,'0')));
-  const allPeriods = Array.from(new Set([...periodsSales, ...periodsReturns])).sort();
+const GSTR1_POS_LIST = [
+  '01-Jammu & Kashmir','02-Himachal Pradesh','03-Punjab','04-Chandigarh','05-Uttarakhand',
+  '06-Haryana','07-Delhi','08-Rajasthan','09-Uttar Pradesh','10-Bihar','11-Sikkim',
+  '12-Arunachal Pradesh','13-Nagaland','14-Manipur','15-Mizoram','16-Tripura','17-Meghalaya',
+  '18-Assam','19-West Bengal','20-Jharkhand','21-Odisha','22-Chhattisgarh','23-Madhya Pradesh',
+  '24-Gujarat','25-Daman & Diu','26-Dadra & Nagar Haveli & Daman & Diu','27-Maharashtra',
+  '29-Karnataka','30-Goa','31-Lakshdweep','32-Kerala','33-Tamil Nadu','34-Puducherry',
+  '35-Andaman & Nicobar Islands','36-Telangana','37-Andhra Pradesh','38-Ladakh','97-Other Territory'
+];
+const GSTR1_STATE_ALIASES = {
+  'nct of delhi':'07-Delhi', 'delhi':'07-Delhi', 'new delhi':'07-Delhi',
+  'orissa':'21-Odisha', 'odisha':'21-Odisha',
+  'pondicherry':'34-Puducherry', 'puducherry':'34-Puducherry',
+  'uttaranchal':'05-Uttarakhand', 'uttarakhand':'05-Uttarakhand',
+  'jammu and kashmir':'01-Jammu & Kashmir', 'jammu & kashmir':'01-Jammu & Kashmir',
+  'andaman and nicobar islands':'35-Andaman & Nicobar Islands', 'andaman & nicobar islands':'35-Andaman & Nicobar Islands',
+  'dadra and nagar haveli and daman and diu':'26-Dadra & Nagar Haveli & Daman & Diu',
+  'dadra & nagar haveli & daman & diu':'26-Dadra & Nagar Haveli & Daman & Diu',
+  'daman and diu':'25-Daman & Diu', 'daman & diu':'25-Daman & Diu',
+  'lakshadweep':'31-Lakshdweep', 'lakshdweep':'31-Lakshdweep'
+};
+function normalizeStateName(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+const GSTR1_POS_LOOKUP = {};
+GSTR1_POS_LIST.forEach(p=>{ const name = p.split('-').slice(1).join('-'); GSTR1_POS_LOOKUP[normalizeStateName(name)] = p; });
+function mapStateToPOS(stateName){
+  const key = normalizeStateName(stateName);
+  if(GSTR1_POS_LOOKUP[key]) return GSTR1_POS_LOOKUP[key];
+  if(GSTR1_STATE_ALIASES[key]) return GSTR1_STATE_ALIASES[key];
+  const found = GSTR1_POS_LIST.find(p=>{
+    const n = normalizeStateName(p.split('-').slice(1).join('-'));
+    return key && (n.includes(key) || key.includes(n));
+  });
+  return found || '97-Other Territory';
+}
+function initGstr1HomeStateOptions(){
+  const sel = document.getElementById('gstr1-home-state');
+  if(!sel || sel.options.length>1) return;
+  GSTR1_POS_LIST.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  try{
+    const saved = JSON.parse(localStorage.getItem('rajmeesho_gstr1_settings')||'{}');
+    if(saved.homeState) sel.value = saved.homeState;
+    if(saved.ecomGstin) document.getElementById('gstr1-ecom-gstin').value = saved.ecomGstin;
+    if(saved.invPrefix) document.getElementById('gstr1-inv-prefix').value = saved.invPrefix;
+    if(saved.invStart) document.getElementById('gstr1-inv-start').value = saved.invStart;
+    if(saved.cnPrefix) document.getElementById('gstr1-cn-prefix').value = saved.cnPrefix;
+    if(saved.cnStart) document.getElementById('gstr1-cn-start').value = saved.cnStart;
+  }catch(e){}
+}
+function saveGstr1Settings(){
+  try{
+    localStorage.setItem('rajmeesho_gstr1_settings', JSON.stringify({
+      homeState: document.getElementById('gstr1-home-state').value,
+      ecomGstin: document.getElementById('gstr1-ecom-gstin').value.trim(),
+      invPrefix: document.getElementById('gstr1-inv-prefix').value.trim(),
+      invStart: document.getElementById('gstr1-inv-start').value,
+      cnPrefix: document.getElementById('gstr1-cn-prefix').value.trim(),
+      cnStart: document.getElementById('gstr1-cn-start').value
+    }));
+  }catch(e){}
+}
+function readGstr1Settings(){
+  return {
+    homeState: document.getElementById('gstr1-home-state').value,
+    ecomGstin: document.getElementById('gstr1-ecom-gstin').value.trim()
+  };
+}
+function computeInvoiceNumbering(){
+  const invPrefix = document.getElementById('gstr1-inv-prefix').value.trim();
+  const invStart = num(document.getElementById('gstr1-inv-start').value) || 1;
+  const cnPrefix = document.getElementById('gstr1-cn-prefix').value.trim();
+  const cnStart = num(document.getElementById('gstr1-cn-start').value) || 1;
+  const salesCount = state.gstSales.filter(r=>dateInFilter(r.orderDate)).length;
+  const returnsCount = state.gstReturns.filter(r=>dateInFilter(r.orderDate)).length;
+  return {
+    invFrom: invPrefix+invStart, invTo: invPrefix+(invStart+Math.max(salesCount-1,0)), invCount: salesCount,
+    cnFrom: cnPrefix+cnStart, cnTo: cnPrefix+(cnStart+Math.max(returnsCount-1,0)), cnCount: returnsCount
+  };
+}
+function renderGstr1NumberingPreview(){
+  const el = document.getElementById('gstr1-numbering-preview');
+  if(!el) return;
+  const n = computeInvoiceNumbering();
+  el.innerHTML = `Invoices: <b>${n.invCount}</b> total — ${n.invCount? (n.invFrom+' to '+n.invTo) : '—'}<br>Credit Notes: <b>${n.cnCount}</b> total — ${n.cnCount? (n.cnFrom+' to '+n.cnTo) : '—'}`;
+}
+function buildB2CSRows(ecomGstin){
+  renderGstSummary(); // ensure window._gstStateRows is fresh for the current data + date filter
+  return (window._gstStateRows||[])
+    .filter(r=> Math.abs(r.taxable)>0.004 || Math.abs(r.tax)>0.004)
+    .map(r=>({
+      type: 'E',
+      pos: mapStateToPOS(r.field1),
+      applicablePct: 100,
+      rate: parseFloat(r.field2),
+      taxableValue: +r.taxable.toFixed(2),
+      cessAmount: 0,
+      ecomGstin: ecomGstin || ''
+    }));
+}
+function buildHsnB2CRows(homeStatePOS){
+  const sales = state.gstSales.filter(r=>dateInFilter(r.orderDate));
+  const returns = state.gstReturns.filter(r=>dateInFilter(r.orderDate));
+  const map = {};
+  function addRow(r, sign){
+    if(!r.hsnCode) return;
+    const key = r.hsnCode+'|'+r.gstRate;
+    if(!map[key]) map[key] = {hsn:r.hsnCode, rate:r.gstRate, qty:0, totalValue:0, taxableValue:0, igst:0, cgst:0, sgst:0};
+    const m = map[key];
+    const isIntra = mapStateToPOS(r.state) === homeStatePOS;
+    m.qty += sign*r.qty;
+    m.totalValue += sign*r.invoiceValue;
+    m.taxableValue += sign*r.taxableValue;
+    if(isIntra){ m.cgst += sign*r.taxAmount/2; m.sgst += sign*r.taxAmount/2; }
+    else { m.igst += sign*r.taxAmount; }
+  }
+  sales.forEach(r=>addRow(r,1));
+  returns.forEach(r=>addRow(r,-1));
+  return Object.values(map)
+    .filter(m=>Math.abs(m.taxableValue)>0.004)
+    .map(m=>({
+      hsn:m.hsn, description:'', uqc:'NOS-NUMBERS', qty:m.qty, totalValue:+m.totalValue.toFixed(2),
+      rate:m.rate, taxableValue:+m.taxableValue.toFixed(2),
+      igst:+m.igst.toFixed(2), cgst:+m.cgst.toFixed(2), sgst:+m.sgst.toFixed(2), cess:0
+    }));
+}
+function buildDocsRows(numbering){
+  const rows = [];
+  if(numbering.invCount>0) rows.push({nature:'Invoices for outward supply', from:numbering.invFrom, to:numbering.invTo, total:numbering.invCount, cancelled:0});
+  if(numbering.cnCount>0) rows.push({nature:'Credit Note', from:numbering.cnFrom, to:numbering.cnTo, total:numbering.cnCount, cancelled:0});
+  return rows;
+}
+function buildGstr1Json(){
+  const settings = readGstr1Settings();
+  const numbering = computeInvoiceNumbering();
   return {
     generatedAt: new Date().toISOString(),
     business: 'Unigen Lifestyle',
-    periodsIncluded: allPeriods,
-    dateFilterApplied: state.dateFilter,
-    totals: {
-      salesOrders: state.gstSales.length,
-      returnOrders: state.gstReturns.length
-    },
-    rateWiseSummary: (window._gstRateRows||[]).map(r=>({rate:r.key, orders:r.orders, taxableValue:+r.taxable.toFixed(2), taxAmount:+r.tax.toFixed(2), invoiceValue:+r.invoice.toFixed(2)})),
-    hsnWiseSummary: (window._gstHsnRows||[]).map(r=>({hsn:r.key, qty:r.qty, taxableValue:+r.taxable.toFixed(2), taxAmount:+r.tax.toFixed(2), invoiceValue:+r.invoice.toFixed(2)})),
-    stateWiseSummary: (window._gstStateRows||[]).map(r=>({state:r.field1, gstRate:r.field2, orders:r.orders, taxableValue:+r.taxable.toFixed(2), taxAmount:+r.tax.toFixed(2)})),
-    monthWiseSummary: (window._gstMonthRows||[]).map(r=>({period:r.period, salesOrders:r.salesOrders, salesTaxable:+r.salesTaxable.toFixed(2), salesTax:+r.salesTax.toFixed(2), returnTaxable:+r.returnTaxable.toFixed(2), netTaxable:+(r.salesTaxable-r.returnTaxable).toFixed(2), netTax:+(r.salesTax-r.returnTax).toFixed(2)})),
-    rawSales: state.gstSales.map(r=>({subOrderNo:r.subOrderNum, orderDate:r.orderDate, hsnCode:r.hsnCode, qty:r.qty, gstRate:r.gstRate, taxableValue:r.taxableValue, taxAmount:r.taxAmount, invoiceValue:r.invoiceValue, state:r.state, period:(r.financialYear||'')+'-'+String(r.monthNumber||'').padStart(2,'0')})),
-    rawReturns: state.gstReturns.map(r=>({subOrderNo:r.subOrderNum, orderDate:r.orderDate, hsnCode:r.hsnCode, qty:r.qty, gstRate:r.gstRate, taxableValue:r.taxableValue, taxAmount:r.taxAmount, invoiceValue:r.invoiceValue, state:r.state, period:(r.financialYear||'')+'-'+String(r.monthNumber||'').padStart(2,'0')}))
+    filingPeriod: state.dateFilter,
+    settings: {homeState: settings.homeState, ecommerceGstin: settings.ecomGstin},
+    invoiceNumbering: numbering,
+    b2cs: buildB2CSRows(settings.ecomGstin),
+    'hsn(b2c)': buildHsnB2CRows(settings.homeState),
+    docs: buildDocsRows(numbering)
   };
 }
-document.getElementById('gst-export-json').addEventListener('click', ()=>{
-  const statusEl = document.getElementById('gst-export-status');
-  if(!state.gstSales.length && !state.gstReturns.length){
-    statusEl.textContent = 'Pehle GST files upload karo.'; statusEl.style.color='var(--red)'; return;
+function writeRowsToSheet(wb, sheetName, startRow, rows){
+  const ws = wb.Sheets[sheetName];
+  if(!ws) throw new Error('Sheet "'+sheetName+'" was not found in the uploaded file — please upload the official GSTR-1 V2.2 Excel template.');
+  let maxCol = 0;
+  rows.forEach((row,i)=>{
+    row.forEach((val,c)=>{
+      const addr = XLSX.utils.encode_cell({r:startRow-1+i, c});
+      ws[addr] = (typeof val==='number') ? {t:'n', v:val} : {t:'s', v:String(val)};
+    });
+    maxCol = Math.max(maxCol, row.length);
+  });
+  if(rows.length){
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    range.e.r = Math.max(range.e.r, startRow-1+rows.length-1);
+    range.e.c = Math.max(range.e.c, maxCol-1);
+    ws['!ref'] = XLSX.utils.encode_range(range);
   }
-  const data = buildGstFullDataset();
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  downloadBlob(blob, 'raj_meesho_gst_full_export.json');
-  statusEl.textContent = `✓ JSON download ho gaya — ${data.periodsIncluded.length} months (${data.periodsIncluded.join(', ')}) ka merged data.`;
-  statusEl.style.color='var(--green)';
-});
-document.getElementById('gst-export-excel').addEventListener('click', ()=>{
-  const statusEl = document.getElementById('gst-export-status');
+}
+async function fillGstr1Template(file){
+  const statusEl = document.getElementById('gstr1-status');
   if(!state.gstSales.length && !state.gstReturns.length){
-    statusEl.textContent = 'Pehle GST files upload karo.'; statusEl.style.color='var(--red)'; return;
+    statusEl.textContent = 'Please upload GST Sales/Return files first.'; statusEl.style.color='var(--red)'; return;
   }
-  const data = buildGstFullDataset();
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.rateWiseSummary.map(r=>({Rate:r.rate, Orders:r.orders, TaxableValue:r.taxableValue, TaxAmount:r.taxAmount, InvoiceValue:r.invoiceValue}))), 'Rate-wise');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.hsnWiseSummary.map(r=>({HSN:r.hsn, Qty:r.qty, TaxableValue:r.taxableValue, TaxAmount:r.taxAmount, InvoiceValue:r.invoiceValue}))), 'HSN-wise');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.stateWiseSummary.map(r=>({State:r.state, GSTRate:r.gstRate, Orders:r.orders, TaxableValue:r.taxableValue, TaxAmount:r.taxAmount}))), 'State-wise');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.monthWiseSummary.map(r=>({Period:r.period, SalesOrders:r.salesOrders, SalesTaxable:r.salesTaxable, SalesTax:r.salesTax, ReturnTaxable:r.returnTaxable, NetTaxable:r.netTaxable, NetTax:r.netTax}))), 'Month-wise');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.rawSales.map(r=>({SubOrderNo:r.subOrderNo, OrderDate:r.orderDate, HSN:r.hsnCode, Qty:r.qty, GSTRate:r.gstRate, TaxableValue:r.taxableValue, TaxAmount:r.taxAmount, InvoiceValue:r.invoiceValue, State:r.state, Period:r.period}))), 'Raw Sales');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.rawReturns.map(r=>({SubOrderNo:r.subOrderNo, OrderDate:r.orderDate, HSN:r.hsnCode, Qty:r.qty, GSTRate:r.gstRate, TaxableValue:r.taxableValue, TaxAmount:r.taxAmount, InvoiceValue:r.invoiceValue, State:r.state, Period:r.period}))), 'Raw Returns');
-  XLSX.writeFile(wb, 'raj_meesho_gst_full_export.xlsx');
-  statusEl.textContent = `✓ Excel download ho gaya — ${data.periodsIncluded.length} months (${data.periodsIncluded.join(', ')}) ka merged data, 6 sheets.`;
-  statusEl.style.color='var(--green)';
+  const settings = readGstr1Settings();
+  if(!settings.homeState){
+    statusEl.textContent = 'Please select your Business Home State first.'; statusEl.style.color='var(--red)'; return;
+  }
+  if(!file){
+    statusEl.textContent = 'Please choose your official GSTR-1 Excel template (.xlsx) first.'; statusEl.style.color='var(--red)'; return;
+  }
+  statusEl.textContent = 'Reading template...'; statusEl.style.color='var(--muted)';
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const b2csRows = buildB2CSRows(settings.ecomGstin);
+    const hsnRows = buildHsnB2CRows(settings.homeState);
+    const numbering = computeInvoiceNumbering();
+    const docsRows = buildDocsRows(numbering);
+
+    writeRowsToSheet(wb, 'b2cs', 5, b2csRows.map(r=>[r.type, r.pos, r.applicablePct, r.rate, r.taxableValue, r.cessAmount, r.ecomGstin]));
+    writeRowsToSheet(wb, 'hsn(b2c)', 5, hsnRows.map(r=>[r.hsn, r.description, r.uqc, r.qty, r.totalValue, r.rate, r.taxableValue, r.igst, r.cgst, r.sgst, r.cess]));
+    writeRowsToSheet(wb, 'docs', 5, docsRows.map(r=>[r.nature, r.from, r.to, r.total, r.cancelled]));
+
+    const periodLabel = (state.dateFilter.from||state.dateFilter.to) ? `${state.dateFilter.from||''}_to_${state.dateFilter.to||''}` : 'AllPeriods';
+    XLSX.writeFile(wb, `GSTR1_Filled_${periodLabel}.xlsx`);
+    statusEl.textContent = `✓ Filled Excel downloaded — B2CS: ${b2csRows.length} rows, HSN(B2C): ${hsnRows.length} rows, Docs: ${docsRows.length} rows.`;
+    statusEl.style.color = 'var(--green)';
+  }catch(err){
+    statusEl.textContent = 'Error: '+err.message; statusEl.style.color='var(--red)';
+  }
+}
+document.getElementById('gstr1-fill-download').addEventListener('click', ()=>{
+  saveGstr1Settings();
+  const f = document.getElementById('gstr1-template-file').files[0];
+  fillGstr1Template(f);
 });
+document.getElementById('gstr1-download-json').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('gstr1-status');
+  if(!state.gstSales.length && !state.gstReturns.length){
+    statusEl.textContent = 'Please upload GST Sales/Return files first.'; statusEl.style.color='var(--red)'; return;
+  }
+  if(!document.getElementById('gstr1-home-state').value){
+    statusEl.textContent = 'Please select your Business Home State first.'; statusEl.style.color='var(--red)'; return;
+  }
+  saveGstr1Settings();
+  const data = buildGstr1Json();
+  const periodLabel = (state.dateFilter.from||state.dateFilter.to) ? `${state.dateFilter.from||''}_to_${state.dateFilter.to||''}` : 'AllPeriods';
+  downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}), `GSTR1_Export_${periodLabel}.json`);
+  statusEl.textContent = `✓ JSON downloaded — B2CS: ${data.b2cs.length} rows, HSN(B2C): ${data['hsn(b2c)'].length} rows, Docs: ${data.docs.length} rows.`;
+  statusEl.style.color = 'var(--green)';
+});
+['gstr1-home-state','gstr1-ecom-gstin','gstr1-inv-prefix','gstr1-inv-start','gstr1-cn-prefix','gstr1-cn-start'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{ renderGstr1NumberingPreview(); saveGstr1Settings(); });
+  document.getElementById(id).addEventListener('change', ()=>{ renderGstr1NumberingPreview(); saveGstr1Settings(); });
+});
+initGstr1HomeStateOptions();
+renderGstr1NumberingPreview();
 
 function renderInventory(){
   const merged = buildMergedOrders();
