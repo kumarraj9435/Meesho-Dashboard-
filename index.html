@@ -779,7 +779,16 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
             <label class="small-note">E-Commerce Operator GSTIN (Meesho) — optional</label><br>
             <input type="text" id="gstr1-ecom-gstin" placeholder="e.g. 07XXXXXXXXXXXZ0" style="width:100%;margin-top:4px;">
           </div>
+          <div>
+            <label class="small-note">Portal / Marketplace Name</label><br>
+            <input type="text" id="gstr1-portal" placeholder="e.g. Meesho, Amazon, Flipkart" value="Meesho" style="width:100%;margin-top:4px;">
+          </div>
+          <div>
+            <label class="small-note">Your Business GSTIN (this seller)</label><br>
+            <input type="text" id="gstr1-seller-gstin" placeholder="e.g. 07XXXXXXXXXXXZ1" style="width:100%;margin-top:4px;">
+          </div>
         </div>
+        <div class="small-note" style="margin-bottom:6px;color:var(--muted);">Portal + your GSTIN get tagged onto every row saved to the Google Sheet, so data from different sellers or marketplaces can share the same Sheet without mixing up — and numbering (below) auto-continues separately for each GSTIN.</div>
 
         <div class="pl-section-title">2. Invoice &amp; Credit Note Numbering</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;max-width:640px;margin-bottom:6px;">
@@ -798,7 +807,7 @@ footer.credit{margin-top:30px;font-size:11px;color:var(--muted);text-align:cente
         </div>
 
         <div class="pl-section-title">4. Google Sheet Sync — Remember Numbering Across Months</div>
-        <p class="small-note" style="margin-bottom:8px;">Uses the same Google Sheet connected in the "Upload Data" tab. Saves this period's raw GST rows into <b>GSTSalesRaw</b> / <b>GSTReturnsRaw</b> tabs (new months just append below), and logs the invoice/credit-note range used into a <b>GSTFilingLog</b> tab — so next month's numbering can pick up automatically from where this month left off.</p>
+        <p class="small-note" style="margin-bottom:8px;">Uses the same Google Sheet connected in the "Upload Data" tab. Saves this period's raw GST rows into <b>GSTSalesRaw</b> / <b>GSTReturnsRaw</b> tabs (new months just append below, tagged with Portal + your GSTIN so multiple sellers/marketplaces can share the same Sheet), and logs the invoice/credit-note range used into a <b>GSTFilingLog</b> tab — so next month's numbering for this same Portal + GSTIN can pick up automatically from where this month left off.</p>
         <div class="controls">
           <button class="secondary" id="gstr1-fetch-lastnum-btn">🔄 Fetch Last Used Numbering</button>
           <button id="gstr1-save-sheet-btn">☁️ Save This Period's Data + Numbering to Sheet</button>
@@ -2360,6 +2369,8 @@ function initGstr1HomeStateOptions(){
     const saved = JSON.parse(localStorage.getItem('rajmeesho_gstr1_settings')||'{}');
     if(saved.homeState) sel.value = saved.homeState;
     if(saved.ecomGstin) document.getElementById('gstr1-ecom-gstin').value = saved.ecomGstin;
+    if(saved.portal) document.getElementById('gstr1-portal').value = saved.portal;
+    if(saved.sellerGstin) document.getElementById('gstr1-seller-gstin').value = saved.sellerGstin;
     if(saved.invPrefix) document.getElementById('gstr1-inv-prefix').value = saved.invPrefix;
     if(saved.invStart) document.getElementById('gstr1-inv-start').value = saved.invStart;
     if(saved.cnPrefix) document.getElementById('gstr1-cn-prefix').value = saved.cnPrefix;
@@ -2371,6 +2382,8 @@ function saveGstr1Settings(){
     localStorage.setItem('rajmeesho_gstr1_settings', JSON.stringify({
       homeState: document.getElementById('gstr1-home-state').value,
       ecomGstin: document.getElementById('gstr1-ecom-gstin').value.trim(),
+      portal: document.getElementById('gstr1-portal').value.trim(),
+      sellerGstin: document.getElementById('gstr1-seller-gstin').value.trim(),
       invPrefix: document.getElementById('gstr1-inv-prefix').value.trim(),
       invStart: document.getElementById('gstr1-inv-start').value,
       cnPrefix: document.getElementById('gstr1-cn-prefix').value.trim(),
@@ -2381,7 +2394,9 @@ function saveGstr1Settings(){
 function readGstr1Settings(){
   return {
     homeState: document.getElementById('gstr1-home-state').value,
-    ecomGstin: document.getElementById('gstr1-ecom-gstin').value.trim()
+    ecomGstin: document.getElementById('gstr1-ecom-gstin').value.trim(),
+    portal: document.getElementById('gstr1-portal').value.trim() || 'Meesho',
+    sellerGstin: document.getElementById('gstr1-seller-gstin').value.trim()
   };
 }
 function computeInvoiceNumbering(){
@@ -2549,12 +2564,13 @@ function derivePeriodLabelForLog(){
 async function writeRowsToSheetHTTP(tab, rows2D){
   return await callAuthApi('writerows', {tab, rowsJson: JSON.stringify(rows2D)});
 }
-async function fetchLastGstNumbering(){
+async function fetchLastGstNumbering(portal, sellerGstin){
   const rows2D = await fetchSheetTabRows('GSTFilingLog');
   const rows = rowsToObjects(rows2D);
-  if(!rows.length) return null;
-  rows.sort((a,b)=> String(a.Period).localeCompare(String(b.Period)));
-  return rows[rows.length-1];
+  const mine = rows.filter(r=> String(r.Portal||'').trim().toLowerCase()===portal.trim().toLowerCase() && String(r.GSTIN||'').trim().toLowerCase()===sellerGstin.trim().toLowerCase());
+  if(!mine.length) return null;
+  mine.sort((a,b)=> String(a.Period).localeCompare(String(b.Period)));
+  return mine[mine.length-1];
 }
 function applyLastNumbering(last){
   const inv = parseTrailingNumber(last.InvoiceTo||'');
@@ -2566,16 +2582,22 @@ function applyLastNumbering(last){
 }
 document.getElementById('gstr1-fetch-lastnum-btn').addEventListener('click', async ()=>{
   const statusEl = document.getElementById('gstr1-sheet-status');
-  statusEl.textContent = 'Checking last saved numbering in the Sheet...'; statusEl.style.color='var(--muted)';
+  const settings = readGstr1Settings();
+  if(!settings.sellerGstin){
+    statusEl.textContent = 'Please enter Your Business GSTIN first (in Business Settings) — numbering is tracked per GSTIN.';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
+  statusEl.textContent = `Checking last saved numbering for ${settings.portal} / ${settings.sellerGstin}...`; statusEl.style.color='var(--muted)';
   try{
-    const last = await fetchLastGstNumbering();
+    const last = await fetchLastGstNumbering(settings.portal, settings.sellerGstin);
     if(!last){
-      statusEl.textContent = 'No previous filing log found in the Sheet yet — this looks like the first month, starting fresh.';
+      statusEl.textContent = `No previous filing log found for ${settings.portal} / ${settings.sellerGstin} yet — this looks like the first month, starting fresh.`;
       statusEl.style.color = 'var(--muted)';
       return;
     }
     applyLastNumbering(last);
-    statusEl.textContent = `✓ Continuing after ${last.Period} — Invoice starts at ${document.getElementById('gstr1-inv-prefix').value}${document.getElementById('gstr1-inv-start').value}, Credit Note starts at ${document.getElementById('gstr1-cn-prefix').value}${document.getElementById('gstr1-cn-start').value}.`;
+    statusEl.textContent = `✓ Continuing after ${last.Period} (${settings.portal} / ${settings.sellerGstin}) — Invoice starts at ${document.getElementById('gstr1-inv-prefix').value}${document.getElementById('gstr1-inv-start').value}, Credit Note starts at ${document.getElementById('gstr1-cn-prefix').value}${document.getElementById('gstr1-cn-start').value}.`;
     statusEl.style.color = 'var(--green)';
   }catch(err){
     statusEl.textContent = 'Could not read the Sheet: '+err.message; statusEl.style.color='var(--red)';
@@ -2586,19 +2608,25 @@ document.getElementById('gstr1-save-sheet-btn').addEventListener('click', async 
   if(!state.gstSales.length && !state.gstReturns.length){
     statusEl.textContent = 'No GST data loaded to save.'; statusEl.style.color='var(--red)'; return;
   }
+  const settings = readGstr1Settings();
+  if(!settings.sellerGstin){
+    statusEl.textContent = 'Please enter Your Business GSTIN first (in Business Settings) — it tags every row so multiple sellers/portals can share this Sheet.';
+    statusEl.style.color = 'var(--red)';
+    return;
+  }
   statusEl.textContent = 'Saving to Google Sheet...'; statusEl.style.color='var(--muted)';
   saveGstr1Settings();
-  const gstHeader = ['SubOrderNo','OrderDate','HSN','Qty','GSTRate','TaxableValue','TaxAmount','InvoiceValue','State','Period'];
+  const gstHeader = ['SubOrderNo','OrderDate','HSN','Qty','GSTRate','TaxableValue','TaxAmount','InvoiceValue','State','Period','Portal','GSTIN'];
   const sales = state.gstSales.filter(r=>dateInFilter(r.orderDate));
   const returns = state.gstReturns.filter(r=>dateInFilter(r.orderDate));
-  const toRow = r => [r.subOrderNum, r.orderDate, r.hsnCode, r.qty, r.gstRate, r.taxableValue, r.taxAmount, r.invoiceValue, r.state, (r.financialYear||'')+'-'+String(r.monthNumber||'').padStart(2,'0')];
+  const toRow = r => [r.subOrderNum, r.orderDate, r.hsnCode, r.qty, r.gstRate, r.taxableValue, r.taxAmount, r.invoiceValue, r.state, (r.financialYear||'')+'-'+String(r.monthNumber||'').padStart(2,'0'), settings.portal, settings.sellerGstin];
   const salesRows2D = [gstHeader].concat(sales.map(toRow));
   const returnRows2D = [gstHeader].concat(returns.map(toRow));
   const numbering = computeInvoiceNumbering();
   const periodLabel = derivePeriodLabelForLog();
   const logRows2D = [
-    ['Period','InvoiceFrom','InvoiceTo','InvoiceCount','CreditNoteFrom','CreditNoteTo','CreditNoteCount','SavedAt'],
-    [periodLabel, numbering.invFrom, numbering.invTo, numbering.invCount, numbering.cnFrom, numbering.cnTo, numbering.cnCount, new Date().toISOString()]
+    ['Period','InvoiceFrom','InvoiceTo','InvoiceCount','CreditNoteFrom','CreditNoteTo','CreditNoteCount','SavedAt','Portal','GSTIN'],
+    [periodLabel, numbering.invFrom, numbering.invTo, numbering.invCount, numbering.cnFrom, numbering.cnTo, numbering.cnCount, new Date().toISOString(), settings.portal, settings.sellerGstin]
   ];
   try{
     const [r1, r2, r3] = await Promise.all([
@@ -2607,7 +2635,7 @@ document.getElementById('gstr1-save-sheet-btn').addEventListener('click', async 
       writeRowsToSheetHTTP('GSTFilingLog', logRows2D)
     ]);
     if(r1.ok && r2.ok && r3.ok){
-      statusEl.textContent = `✓ Saved to Google Sheet for ${periodLabel} — Sales: ${r1.appended} new rows, Returns: ${r2.appended} new rows, filing log updated (Invoices ${numbering.invFrom}–${numbering.invTo}, Credit Notes ${numbering.cnFrom}–${numbering.cnTo}).`;
+      statusEl.textContent = `✓ Saved to Google Sheet for ${periodLabel} (${settings.portal} / ${settings.sellerGstin}) — Sales: ${r1.appended} new rows, Returns: ${r2.appended} new rows, filing log updated (Invoices ${numbering.invFrom}–${numbering.invTo}, Credit Notes ${numbering.cnFrom}–${numbering.cnTo}).`;
       statusEl.style.color = 'var(--green)';
     } else {
       const errs = [r1,r2,r3].filter(r=>!r.ok).map(r=>r.error).join(' | ');
@@ -2618,7 +2646,7 @@ document.getElementById('gstr1-save-sheet-btn').addEventListener('click', async 
     statusEl.textContent = 'Could not save to the Sheet: '+err.message; statusEl.style.color='var(--red)';
   }
 });
-['gstr1-home-state','gstr1-ecom-gstin','gstr1-inv-prefix','gstr1-inv-start','gstr1-cn-prefix','gstr1-cn-start'].forEach(id=>{
+['gstr1-home-state','gstr1-ecom-gstin','gstr1-portal','gstr1-seller-gstin','gstr1-inv-prefix','gstr1-inv-start','gstr1-cn-prefix','gstr1-cn-start'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{ renderGstr1NumberingPreview(); saveGstr1Settings(); });
   document.getElementById(id).addEventListener('change', ()=>{ renderGstr1NumberingPreview(); saveGstr1Settings(); });
 });
